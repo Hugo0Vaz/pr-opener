@@ -11,6 +11,33 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
+func loadConfig() (urlFlag string, mainBranch string, configLoaded bool, err error) {
+	var repoCfg struct {
+		Repo struct {
+			Base       string `toml:"base"`
+			RepoOwner  string `toml:"repo_owner"`
+			Repo       string `toml:"repo"`
+			BaseBranch string `toml:"base_branch"`
+		} `toml:"Repo"`
+	}
+	if _, err := os.Stat(".propener.toml"); err == nil {
+		if _, err := toml.DecodeFile(".propener.toml", &repoCfg); err != nil {
+			return "", "", false, fmt.Errorf("Error parsing .propener.toml: %v", err)
+		}
+		configLoaded = true
+		if repoCfg.Repo.Base != "" {
+			urlFlag = fmt.Sprintf("%s%s/%s", repoCfg.Repo.Base, repoCfg.Repo.RepoOwner, repoCfg.Repo.Repo)
+		}
+		mainBranch = repoCfg.Repo.BaseBranch
+	} else {
+		mainBranch, err = getMainBranch()
+		if err != nil {
+			return "", "", false, err
+		}
+	}
+	return urlFlag, mainBranch, configLoaded, nil
+}
+
 func main() {
 	var urlFlag string
 	var quickPull bool
