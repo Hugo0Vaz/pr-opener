@@ -8,6 +8,8 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	
+	"github.com/BurntSushi/toml"
 )
 
 func main() {
@@ -17,14 +19,17 @@ func main() {
 	flag.BoolVar(&quickPull, "quick-pull", false, "Activate quick-pull mode")
 	flag.Parse()
 
-	// Check if .propener.toml exists
+	// Check if .propener.toml exists and parse url from TOML format
 	if _, err := os.Stat(".propener.toml"); err == nil {
-		// Load from file
-		content, err := ioutil.ReadFile(".propener.toml")
-		if err != nil {
-			log.Fatalf("Error reading .propener.toml: %v", err)
+		var conf struct {
+			URL string `toml:"url"`
 		}
-		urlFlag = strings.TrimSpace(string(content))
+		if _, err := toml.DecodeFile(".propener.toml", &conf); err != nil {
+			log.Fatalf("Error parsing .propener.toml: %v", err)
+		}
+		if conf.URL != "" {
+			urlFlag = conf.URL
+		}
 	}
 
 	mainBranch, err := getMainBranch()
