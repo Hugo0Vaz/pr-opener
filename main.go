@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
@@ -19,7 +18,6 @@ func main() {
 	flag.BoolVar(&quickPull, "quick-pull", false, "Activate quick-pull mode")
 	flag.Parse()
 
-	// Check if .propener.toml exists and parse Repo config from TOML format
 	var configLoaded bool
 	var repoCfg struct {
 		Repo struct {
@@ -29,6 +27,7 @@ func main() {
 			BaseBranch string `toml:"base_branch"`
 		} `toml:"Repo"`
 	}
+
 	if _, err := os.Stat(".propener.toml"); err == nil {
 		if _, err := toml.DecodeFile(".propener.toml", &repoCfg); err != nil {
 			log.Fatalf("Error parsing .propener.toml: %v", err)
@@ -43,7 +42,7 @@ func main() {
 	if configLoaded {
 		mainBranch = repoCfg.Repo.BaseBranch
 	} else {
-		mainBranch, err = getMainBranch()
+		mainBranch, err := getMainBranch()
 		if err != nil {
 			log.Fatalf("Error getting main branch: %v", err)
 		}
@@ -69,6 +68,10 @@ func main() {
 
 	prURL := fmt.Sprintf("https://github.com/your-org/your-repo/compare/%s...%s?expand=1&title=%s&body=%s", mainBranch, currentBranch, urlEncode(title), urlEncode(body))
 	fmt.Println("PR URL:", prURL)
+}
+
+func getBasePrUrl(b string, ro string, r string, bb string, cb string) (string) {
+	return b+ro+"/"+r+"/"+"compare"+"/"+bb+"..."+cb
 }
 
 func getMainBranch() (string, error) {
