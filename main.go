@@ -3,11 +3,11 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
 	"strings"
-	"io/ioutil"
 )
 
 func main() {
