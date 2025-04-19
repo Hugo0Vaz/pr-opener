@@ -3,40 +3,12 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"strings"
-	
+
 	"github.com/BurntSushi/toml"
 )
-
-func loadConfig() (urlFlag string, mainBranch string, configLoaded bool, err error) {
-	var repoCfg struct {
-		Repo struct {
-			Base       string `toml:"base"`
-			RepoOwner  string `toml:"repo_owner"`
-			Repo       string `toml:"repo"`
-			BaseBranch string `toml:"base_branch"`
-		} `toml:"Repo"`
-	}
-	if _, err := os.Stat(".propener.toml"); err == nil {
-		if _, err := toml.DecodeFile(".propener.toml", &repoCfg); err != nil {
-			return "", "", false, fmt.Errorf("Error parsing .propener.toml: %v", err)
-		}
-		configLoaded = true
-		if repoCfg.Repo.Base != "" {
-			urlFlag = fmt.Sprintf("%s%s/%s", repoCfg.Repo.Base, repoCfg.Repo.RepoOwner, repoCfg.Repo.Repo)
-		}
-		mainBranch = repoCfg.Repo.BaseBranch
-	} else {
-		mainBranch, err = getMainBranch()
-		if err != nil {
-			return "", "", false, err
-		}
-	}
-	return urlFlag, mainBranch, configLoaded, nil
-}
 
 func main() {
 	var urlFlag string
@@ -45,60 +17,66 @@ func main() {
 	flag.BoolVar(&quickPull, "quick-pull", false, "Activate quick-pull mode")
 	flag.Parse()
 
-	var configLoaded bool
+	var baseUrl string
+	var apiKey string
+
+	if urlFlag == "" {
+		fmt.Println("Loading configs from .propener.toml ")
+		var err error
+		baseUrl, apiKey, err = loadTomlConfigs()
+		if err != nil {
+			fmt.Println("Cannot load the config from the .propner, exiting...")
+		}
+	} else {
+		fmt.Println("URL argument passed, ignoring any .propener.toml")
+		baseUrl = urlFlag
+
+		envKey := os.Getenv("OPENAI_API_KEY")
+
+		if envKey == "" {
+			fmt.Println("No OPENAI_API_KEY in the enviroment, exiting...")
+		}
+		apiKey = envKey
+	}
+
+	fmt.Println(baseUrl, apiKey)
+}
+
+func loadTomlConfigs() (string, string, error) {
 	var repoCfg struct {
 		Repo struct {
 			Base       string `toml:"base"`
 			RepoOwner  string `toml:"repo_owner"`
 			Repo       string `toml:"repo"`
 			BaseBranch string `toml:"base_branch"`
-		} `toml:"Repo"`
+		} `toml:"repo"`
+
+		Ai struct {
+			OpenAiApiKey string `toml:"openai_api_key"`
+		} `toml:"ai"`
 	}
 
-	if _, err := os.Stat(".propener.toml"); err == nil {
-		if _, err := toml.DecodeFile(".propener.toml", &repoCfg); err != nil {
-			log.Fatalf("Error parsing .propener.toml: %v", err)
-		}
-		configLoaded = true
-		if repoCfg.Repo.Base != "" {
-			urlFlag = fmt.Sprintf("%s%s/%s", repoCfg.Repo.Base, repoCfg.Repo.RepoOwner, repoCfg.Repo.Repo)
-		}
+	if _, err := os.Stat(".propener.toml"); err != nil {
+		fmt.Println("Could not open .propener.toml")
 	}
 
-	var mainBranch string
-	if configLoaded {
-		mainBranch = repoCfg.Repo.BaseBranch
-	} else {
-		mainBranch, err := getMainBranch()
-		if err != nil {
-			log.Fatalf("Error getting main branch: %v", err)
-		}
+	if _, err := toml.DecodeFile(".propener.toml", &repoCfg); err != nil {
+		fmt.Println("Coul not decode .propener.tml")
 	}
 
-	currentBranch, err := getCurrentBranch()
+	cb, err := getCurrentBranch()
 	if err != nil {
-		log.Fatalf("Error getting current branch: %v", err)
+		fmt.Println(err)
 	}
 
-	if currentBranch == "main" || currentBranch == "develop" || currentBranch == "master" {
-		log.Fatalf("Current branch (%s) cannot be used to open a PR", currentBranch)
-	}
+	base := getBasePrUrl(repoCfg.Repo.Base, repoCfg.Repo.RepoOwner, repoCfg.Repo.Repo, repoCfg.Repo.BaseBranch, cb)
+	key := repoCfg.Ai.OpenAiApiKey
 
-	title, body := "", ""
-	if quickPull {
-		title = "PR from " + currentBranch
-		body = "Quick PR from branch " + currentBranch
-	} else {
-		title = generateTitle()
-		body = generateBody()
-	}
-
-	prURL := fmt.Sprintf("https://github.com/your-org/your-repo/compare/%s...%s?expand=1&title=%s&body=%s", mainBranch, currentBranch, urlEncode(title), urlEncode(body))
-	fmt.Println("PR URL:", prURL)
+	return base, key, nil
 }
 
-func getBasePrUrl(b string, ro string, r string, bb string, cb string) (string) {
-	return b+ro+"/"+r+"/"+"compare"+"/"+bb+"..."+cb
+func getBasePrUrl(b string, ro string, r string, bb string, cb string) string {
+	return b + ro + "/" + r + "/" + "compare" + "/" + bb + "..." + cb
 }
 
 func getMainBranch() (string, error) {

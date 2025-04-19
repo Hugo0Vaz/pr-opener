@@ -1,0 +1,8 @@
+[repo]
+base = "https://github.com/"
+repo_owner = "Hugo0Vaz"
+repo = "pr-opener"
+base_branch = "main"
+
+[ai]
+openai_api_key = "ksajdfhsçkdjfhaskdjfhlksdjfhlksjdfhklj"
