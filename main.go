@@ -19,22 +19,34 @@ func main() {
 	flag.BoolVar(&quickPull, "quick-pull", false, "Activate quick-pull mode")
 	flag.Parse()
 
-	// Check if .propener.toml exists and parse url from TOML format
+	// Check if .propener.toml exists and parse Repo config from TOML format
+	var configLoaded bool
+	var repoCfg struct {
+		Repo struct {
+			Base       string `toml:"base"`
+			RepoOwner  string `toml:"repo_owner"`
+			Repo       string `toml:"repo"`
+			BaseBranch string `toml:"base_branch"`
+		} `toml:"Repo"`
+	}
 	if _, err := os.Stat(".propener.toml"); err == nil {
-		var conf struct {
-			URL string `toml:"url"`
-		}
-		if _, err := toml.DecodeFile(".propener.toml", &conf); err != nil {
+		if _, err := toml.DecodeFile(".propener.toml", &repoCfg); err != nil {
 			log.Fatalf("Error parsing .propener.toml: %v", err)
 		}
-		if conf.URL != "" {
-			urlFlag = conf.URL
+		configLoaded = true
+		if repoCfg.Repo.Base != "" {
+			urlFlag = fmt.Sprintf("%s%s/%s", repoCfg.Repo.Base, repoCfg.Repo.RepoOwner, repoCfg.Repo.Repo)
 		}
 	}
 
-	mainBranch, err := getMainBranch()
-	if err != nil {
-		log.Fatalf("Error getting main branch: %v", err)
+	var mainBranch string
+	if configLoaded {
+		mainBranch = repoCfg.Repo.BaseBranch
+	} else {
+		mainBranch, err = getMainBranch()
+		if err != nil {
+			log.Fatalf("Error getting main branch: %v", err)
+		}
 	}
 
 	currentBranch, err := getCurrentBranch()
