@@ -1,2 +1,4 @@
 github.com/BurntSushi/toml v1.5.0 h1:W5quZX/G/csjUnuI8SUYlsHs9M38FC7znL0lIO+DvMg=
 github.com/BurntSushi/toml v1.5.0/go.mod h1:ukJfTF/6rtPPRCnwkur4qwRxa8vTRFBF0uk2lLoLwho=
+github.com/sashabaranov/go-openai v1.38.2 h1:akrssjj+6DY3lWuDwHv6cBvJ8Z+FZDM9XEaaYFt0Auo=
+github.com/sashabaranov/go-openai v1.38.2/go.mod h1:lj5b/K+zjTSFxVLijLSTDZuP7adOgerWeFyZLUhAKRg=

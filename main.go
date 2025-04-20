@@ -6,43 +6,74 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"context"
 
+	openai "github.com/sashabaranov/go-openai"
 	"github.com/BurntSushi/toml"
 )
 
 func main() {
-	var urlFlag string
 	var quickPull bool
-	flag.StringVar(&urlFlag, "url", "", "URL for PR generation (optional)")
+	var baseCli string
+	var repoOwnerCli string
+	var repoCli string
+	var baseBrachCli string
 	flag.BoolVar(&quickPull, "quick-pull", false, "Activate quick-pull mode")
+	flag.StringVar(&baseCli,"base", "https://github.com/", "The base url for the tool, default is 'https://github.com/'")
+	flag.StringVar(&repoOwnerCli, "repo-owner", "", "The PR reposistory owner")
+	flag.StringVar(&repoCli, "repo", "", "The PR repository")
+	flag.StringVar(&baseBrachCli, "base-branch", "", "The base branch of the PR")
 	flag.Parse()
 
-	var baseUrl string
-	var apiKey string
-
-	if urlFlag == "" {
-		fmt.Println("Loading configs from .propener.toml ")
-		var err error
-		baseUrl, apiKey, err = loadTomlConfigs()
-		if err != nil {
-			fmt.Println("Cannot load the config from the .propner, exiting...")
-		}
-	} else {
-		fmt.Println("URL argument passed, ignoring any .propener.toml")
-		baseUrl = urlFlag
-
-		envKey := os.Getenv("OPENAI_API_KEY")
-
-		if envKey == "" {
-			fmt.Println("No OPENAI_API_KEY in the enviroment, exiting...")
-		}
-		apiKey = envKey
+	currentBranch, err := getCurrentBranch()
+	if err != nil {
+		fmt.Println("Could not get git current branch")
+		os.Exit(1)
 	}
 
-	fmt.Println(baseUrl, apiKey)
+	apiKey := os.Getenv("OPENAI_API_KEY")
+	if apiKey == "" {
+		fmt.Println("'OPENAI_API_KEY' no set in the enviroment")
+		os.Exit(1)
+	}
+
+	var base string 
+	var repoOwner string
+	var repo string
+	var baseBranch string
+
+	if ( repoOwnerCli == "" && repoCli == "" &&  baseBrachCli == "" ) {
+		fmt.Println("Loading configs from .propener.toml")
+		base, repoOwner, repo, baseBranch, err = loadTomlConfigs()
+		if err != nil {
+			fmt.Println("Cannot load the config from the .propner.toml, exiting...")
+			os.Exit(1)
+		}
+	} else {
+		base, repoOwner, repo, baseBranch = baseCli, repoOwnerCli, repoCli, baseBrachCli
+		fmt.Println("Loading configs from cli")
+	}
+
+	baseUrl := getBasePrUrl(base, repoOwner, repo, baseBranch, currentBranch)
+	prePromp := `A partir da lista de commits apresentado abaixo, gere dois itens: 
+
+	- Um título das mudanças no repositório (esse será o título do pull request)
+	- O segundo item uma descrição mais longa das mudanças que estão contidas naquele pull request
+
+	A saída deve seguir o seguinte formato:
+
+	<Título>
+
+	<Descrição>
+`
+	commitBody, _ := generateCommitBody(baseBranch)
+	inference, _ := getInference(prePromp, commitBody, apiKey)
+
+	fmt.Println(baseUrl)
+	fmt.Println(inference)
 }
 
-func loadTomlConfigs() (string, string, error) {
+func loadTomlConfigs() (string, string, string, string, error) {
 	var repoCfg struct {
 		Repo struct {
 			Base       string `toml:"base"`
@@ -50,44 +81,23 @@ func loadTomlConfigs() (string, string, error) {
 			Repo       string `toml:"repo"`
 			BaseBranch string `toml:"base_branch"`
 		} `toml:"repo"`
-
-		Ai struct {
-			OpenAiApiKey string `toml:"openai_api_key"`
-		} `toml:"ai"`
 	}
 
 	if _, err := os.Stat(".propener.toml"); err != nil {
 		fmt.Println("Could not open .propener.toml")
+		return "", "", "", "", err
 	}
 
 	if _, err := toml.DecodeFile(".propener.toml", &repoCfg); err != nil {
 		fmt.Println("Coul not decode .propener.tml")
+		return "", "", "", "", err
 	}
 
-	cb, err := getCurrentBranch()
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	base := getBasePrUrl(repoCfg.Repo.Base, repoCfg.Repo.RepoOwner, repoCfg.Repo.Repo, repoCfg.Repo.BaseBranch, cb)
-	key := repoCfg.Ai.OpenAiApiKey
-
-	return base, key, nil
+	return repoCfg.Repo.Base, repoCfg.Repo.RepoOwner, repoCfg.Repo.Repo, repoCfg.Repo.BaseBranch, nil
 }
 
 func getBasePrUrl(b string, ro string, r string, bb string, cb string) string {
 	return b + ro + "/" + r + "/" + "compare" + "/" + bb + "..." + cb
-}
-
-func getMainBranch() (string, error) {
-	candidates := []string{"main", "develop", "master"}
-	for _, branch := range candidates {
-		cmd := exec.Command("git", "rev-parse", "--verify", branch)
-		if err := cmd.Run(); err == nil {
-			return branch, nil
-		}
-	}
-	return "", fmt.Errorf("no main branch found")
 }
 
 func getCurrentBranch() (string, error) {
@@ -99,23 +109,41 @@ func getCurrentBranch() (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
-func generateTitle() string {
-	// Call ChatGPT API to generate title; stub implementation
-	return "Generated PR Title"
-}
+func getInference(prePrompt string, commitBody string, apiKey string) (string, error) {
+	prompt := prePrompt + commitBody
 
-func generateBody() string {
-	commitMessages, err := getCommitMessages()
+	client := openai.NewClient(apiKey)
+
+	resp, err := client.CreateChatCompletion(
+		context.Background(),
+		openai.ChatCompletionRequest{
+			Model: openai.GPT3Dot5Turbo,
+			Messages: []openai.ChatCompletionMessage{
+				{
+					Role:    openai.ChatMessageRoleUser,
+					Content: prompt,
+				},
+			},
+		},
+	)
 	if err != nil {
-		return "Error retrieving commit messages"
+		return "", fmt.Errorf("OpenAI API error: %w", err)
 	}
-	// Call ChatGPT API to generate summary; stub implementation
-	summary := "Summary of changes"
-	return summary + "\n\nCommits:\n" + commitMessages
+
+	return resp.Choices[0].Message.Content, nil
 }
 
-func getCommitMessages() (string, error) {
-	cmd := exec.Command("git", "log", "--pretty=format:(%h): %s", "HEAD", "^origin")
+func generateCommitBody(bb string) (string, error) {
+	commitMessages, err := getCommitMessages(bb)
+	if err != nil {
+		return "Error retrieving commit messages", err
+	}
+	summary := "# Summary of changes"
+	return summary + "\n\nCommits:\n" + commitMessages, nil
+}
+
+func getCommitMessages(bb string) (string, error) {
+	cmd := exec.Command("git", "log", `--pretty=format:(%h): %s`, bb+".."+"HEAD", "^origin", "-p")
 	out, err := cmd.Output()
 	if err != nil {
 		return "", err
@@ -124,6 +152,5 @@ func getCommitMessages() (string, error) {
 }
 
 func urlEncode(s string) string {
-	// Simple URL encoding, more robust implementation might use url.QueryEscape
 	return strings.ReplaceAll(s, " ", "+")
 }
