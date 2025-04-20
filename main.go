@@ -85,10 +85,25 @@ func main() {
 	if err != nil {
 		fmt.Println("Could not get commit messages")
 	}
-
-	fmt.Println(baseUrl+"?quick_pull=1"+"&title="+shortPart)
+	
+	url := assembleUrl(baseUrl, shortPart, false)
+	fmt.Println(url)
 	fmt.Println(longPart)
 	fmt.Println(commits)
+}
+
+func assembleUrl(bu string, tt string, q bool) string {
+	queryStartChar := "?"
+	queryAppendChar := "&"
+	var quickPull string
+	if q == true {
+		quickPull = "1"	
+	} else {
+		quickPull = ""
+	}
+
+	title := "title="+tt
+	return bu+queryStartChar+quickPull+queryAppendChar+title
 }
 
 func parseInference(i string) (string, string) {
