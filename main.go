@@ -58,7 +58,7 @@ func main() {
 	prePromp := `A partir da lista de commits apresentado abaixo, gere dois itens: 
 
 	- Um título das mudanças no repositório (esse será o título do pull request)
-	- O segundo item uma descrição mais longa das mudanças formatada em tópicos que estão contidas naquele pull request
+	- O segundo item uma descrição mais longa das mudanças formatada em tópicos que estão contidas naquele pull request, não use títulos os subtítulos.
 
 	A saída deve seguir o seguinte formato e deverá ser português brasileiro:
 
