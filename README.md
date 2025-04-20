@@ -7,7 +7,7 @@ The pr-opener project allows you to generate a GitHub pull request URL automatic
 
 ### Prerequisites
 
-- Go must be installed.
+- Go and make, must be installed.
 - The `OPENAI_API_KEY` environment variable needs to be set.
 - You must be working within a git repository.
 - Optionally, create a `.propener.toml` file in the project root with the following format:
@@ -20,22 +20,29 @@ repo = "pr-opener"
 base_branch = "main"
 ```
 
-### How to Use
+# Installation
 
-**Using Configuration File (.propener.toml):**
+Run `make` to build the project and produce the binary `pr-opener`. To install, run:
+
+    sudo make install
+
+# Usage
+
+## Using Configuration File (.propener.toml):
 
 Simply run the project without providing CLI flags:
-```bash
-go run main.go
-```
 
+```bash
+propener
+```
 The tool will load the configuration from the `.propener.toml` file if no flags are provided.
 
-**Using CLI Flags:**
+## Using CLI Flags:
 
 Override the configuration by passing flags. For example:
+
 ```bash
-go run main.go --base "https://github.com/" --repo-owner "Hugo0Vaz" --repo "pr-opener" --base-branch "main" --quick-pull=true
+propener --repo-owner "Hugo0Vaz" --repo "pr-opener" --base-branch "main"
 ```
 
 The tool will:
@@ -47,14 +54,10 @@ The tool will:
 ### Example
 
 For a branch named `feature/new-feature`, the tool might produce a URL similar to:
+
 ```
 https://github.com/Hugo0Vaz/pr-opener/compare/main...feature/new-feature?quick_pull=1&title=<generated_title>
 ```
 
 Enjoy using pr-opener!
 
-## Build and Installation
-
-Run `make` to build the project and produce the binary `pr-opener`. To install, run:
-
-    sudo make install
