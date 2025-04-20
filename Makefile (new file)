@@ -1,0 +1,14 @@
+.PHONY: all build install clean
+
+BINARY=pr-opener
+
+all: build
+
+build:
+	go build -o $(BINARY) main.go
+
+install: build
+	install -m 0755 $(BINARY) /usr/local/bin/$(BINARY)
+
+clean:
+	rm -f $(BINARY)

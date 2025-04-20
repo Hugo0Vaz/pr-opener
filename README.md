@@ -52,3 +52,9 @@ https://github.com/Hugo0Vaz/pr-opener/compare/main...feature/new-feature?quick_p
 ```
 
 Enjoy using pr-opener!
+
+## Build and Installation
+
+Run `make` to build the project and produce the binary `pr-opener`. To install, run:
+
+    sudo make install
