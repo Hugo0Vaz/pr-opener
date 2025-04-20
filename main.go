@@ -58,19 +58,45 @@ func main() {
 	prePromp := `A partir da lista de commits apresentado abaixo, gere dois itens: 
 
 	- Um título das mudanças no repositório (esse será o título do pull request)
-	- O segundo item uma descrição mais longa das mudanças que estão contidas naquele pull request
+	- O segundo item uma descrição mais longa das mudanças formatada em tópicos que estão contidas naquele pull request
 
-	A saída deve seguir o seguinte formato:
+	A saída deve seguir o seguinte formato e deverá ser português brasileiro:
 
 	<Título>
 
 	<Descrição>
 `
-	commitBody, _ := generateCommitBody(baseBranch)
-	inference, _ := getInference(prePromp, commitBody, apiKey)
+	commitBody, err := generateCommitBody(baseBranch)
+	if err != nil {
+		fmt.Println("Was not possible to generate commit list")
+		os.Exit(1)
+	}
 
-	fmt.Println(baseUrl)
-	fmt.Println(inference)
+	inference, _ := getInference(prePromp, commitBody, apiKey)
+	if err != nil {
+		fmt.Printf("Was not possible to infere over the commits: %s", err)
+		os.Exit(1)
+	}
+
+	shortPart, longPart := parseInference(inference)
+	shortPart = urlEncode(shortPart)
+
+	commits, err := getCommitsMesseges(baseBranch)
+	if err != nil {
+		fmt.Println("Could not get commit messages")
+	}
+
+	fmt.Println(baseUrl+"?quick_pull=1"+"&title="+shortPart)
+	fmt.Println(longPart)
+	fmt.Println(commits)
+}
+
+func parseInference(i string) (string, string) {
+	parts := strings.SplitN(i, "\n", 2)
+	shortPart := parts[0]
+	longPart := parts[1]
+
+	return shortPart, longPart
 }
 
 func loadTomlConfigs() (string, string, string, string, error) {
@@ -134,7 +160,7 @@ func getInference(prePrompt string, commitBody string, apiKey string) (string, e
 }
 
 func generateCommitBody(bb string) (string, error) {
-	commitMessages, err := getCommitMessages(bb)
+	commitMessages, err := getCommits(bb)
 	if err != nil {
 		return "Error retrieving commit messages", err
 	}
@@ -142,8 +168,17 @@ func generateCommitBody(bb string) (string, error) {
 	return summary + "\n\nCommits:\n" + commitMessages, nil
 }
 
-func getCommitMessages(bb string) (string, error) {
+func getCommits(bb string) (string, error) {
 	cmd := exec.Command("git", "log", `--pretty=format:(%h): %s`, bb+".."+"HEAD", "^origin", "-p")
+	out, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	return string(out), nil
+}
+
+func getCommitsMesseges(bb string) (string, error) {
+	cmd := exec.Command("git", "log", `--pretty=format:(%h): %s`, bb+".."+"HEAD", "^origin",)
 	out, err := cmd.Output()
 	if err != nil {
 		return "", err
