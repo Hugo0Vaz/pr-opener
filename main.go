@@ -18,7 +18,7 @@ func main() {
 	var repoOwnerCli string
 	var repoCli string
 	var baseBrachCli string
-	flag.BoolVar(&quickPull, "quick-pull", false, "Activate quick-pull mode")
+	flag.BoolVar(&quickPull, "quick-pull", true, "Activate quick-pull mode")
 	flag.StringVar(&baseCli,"base", "https://github.com/", "The base url for the tool, default is 'https://github.com/'")
 	flag.StringVar(&repoOwnerCli, "repo-owner", "", "The PR reposistory owner")
 	flag.StringVar(&repoCli, "repo", "", "The PR repository")
@@ -86,9 +86,9 @@ func main() {
 		fmt.Println("Could not get commit messages")
 	}
 	
-	url := assembleUrl(baseUrl, shortPart, false)
+	url := assembleUrl(baseUrl, shortPart, quickPull)
 	fmt.Println(url)
-	fmt.Println(longPart)
+	fmt.Println(longPart+"\n\n")
 	fmt.Println(commits)
 }
 
@@ -97,7 +97,7 @@ func assembleUrl(bu string, tt string, q bool) string {
 	queryAppendChar := "&"
 	var quickPull string
 	if q == true {
-		quickPull = "1"	
+		quickPull = "quick_pull=1"	
 	} else {
 		quickPull = ""
 	}
